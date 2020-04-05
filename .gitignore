@@ -1,1 +1,4 @@
-/neptune/.serverless
+.serverless/
+node_modules/
+
+/api/package-lock.json
