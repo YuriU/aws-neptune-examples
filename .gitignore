@@ -2,3 +2,4 @@
 node_modules/
 
 /api/package-lock.json
+/rekognition/package-lock.json
