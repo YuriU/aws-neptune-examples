@@ -23,8 +23,7 @@ resources:
             - "NeptuneServiceSecurityGroup"
             - "GroupId"
         Port: 8182
-        IamAuthEnabled: false # make this true if using this for anything real, 
-                              # you will then need to sign requests
+        IamAuthEnabled: false # make this true if using this for anything real, you will then need to sign
       DependsOn:
         - NeptuneDBSubnetGroup
 
@@ -44,6 +43,9 @@ resources:
       Type: AWS::EC2::VPC
       Properties:
           CidrBlock: 10.0.0.0/16
+          EnableDnsSupport: 'true'
+          EnableDnsHostnames: 'true'
+          InstanceTenancy: 'default'
           Tags:
             - Key: Name
               Value: neptune-vpc
@@ -53,7 +55,7 @@ resources:
       Properties:
         VpcId:
           Ref: NeptuneVPC
-        CidrBlock: 10.0.1.0/24 
+        CidrBlock: 10.0.1.0/24 # same as public cidr 
         AvailabilityZone:
           Fn::Select: 
             - 0
@@ -86,7 +88,7 @@ resources:
           - 
             Ref: Subnet2
       
-    # Setup connectivity by creating an internet gateway
+    # Setup connectivity by creating an internet GW
     InternetGateway:
       Type: AWS::EC2::InternetGateway
       Properties:
@@ -162,6 +164,55 @@ resources:
           - Key: Name
             Value: Neptune service security group
 
+    # resources added in chapter 4 for loading data from S3
+    NeptuneLoadFromS3Role:
+      Type: 'AWS::IAM::Role'
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - rds.amazonaws.com
+              Action:
+                - 'sts:AssumeRole'
+        Path: /
+    NeptuneLoadFromS3Policy:
+      Type: 'AWS::IAM::Policy'
+      Properties:
+        PolicyName: NeptuneLoadFromS3Policy
+        PolicyDocument:
+          Statement:
+            - Effect: Allow
+              Action:
+                - 's3:Get*'
+                - 's3:List*'
+              Resource: '*'
+        Roles:
+          - !Ref NeptuneLoadFromS3Role
+    VPCS3Endpoint:
+      Type: 'AWS::EC2::VPCEndpoint'
+      DependsOn:
+        - NeptuneVPC
+      Properties:
+        RouteTableIds:
+          - !Ref SubnetRouteTable
+        ServiceName: !Join 
+          - ''
+          - - com.amazonaws.
+            - !Ref 'AWS::Region'
+            - .s3
+        VpcId: !Ref NeptuneVPC
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal: '*'
+              Action:
+                - 's3:*'
+              Resource:
+                - '*'
   Outputs:
     # output the values needed by the lambda stack
     Subnet1: 
@@ -192,3 +243,10 @@ resources:
         Fn::GetAtt:
           - "NeptuneDBCluster"
           - "ClusterResourceId"
+
+    NeptuneLoadFromS3RoleArn:
+      Description: S3 loader role for neptune to assume
+      Value:
+        Fn::GetAtt:
+          - "NeptuneLoadFromS3Role"
+          - "Arn"
