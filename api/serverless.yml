@@ -1,7 +1,5 @@
 service: acg-neptune-api
 
-frameworkVersion: ">=1.1.0 <2.0.0"
-
 plugins:
   - serverless-webpack
   - serverless-pseudo-parameters
@@ -35,7 +33,9 @@ custom:
   webpackIncludeModules:
     forceInclude:
       - gremlin
+      - isomorphic-fetch
   neptuneStackName: acg-neptune-db-dev
+  rekognitionStackName: acg-rekognition-data-dev
 
 functions:
   query:
@@ -47,3 +47,15 @@ functions:
       - http:
           path: query
           method: get
+
+  loader:
+    handler: loader.load
+    timeout: 20
+    environment: 
+      ROLE_ARN: ${cf:${self:custom.neptuneStackName}.NeptuneLoadFromS3RoleArn}
+      LOADER_S3_BUCKET: ${cf:${self:custom.rekognitionStackName}.S3Bucket}
+      CLUSTER_ENDPOINT: ${cf:${self:custom.neptuneStackName}.DBClusterEndpoint}
+    events:
+      - http:
+          path: loader
+          method: post
